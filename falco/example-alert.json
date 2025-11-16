@@ -1,0 +1,24 @@
+{
+  "output": "14:50:49.930956: Warning Shell spawned in container (user=root shell=sh parent=python container_id=abc123 container_name=tp3-secure-app)",
+  "priority": "Warning",
+  "rule": "Launch shell in container",
+  "time": "2025-11-16T14:50:49.930956Z",
+  "output_fields": {
+    "container.id": "abc123def456",
+    "container.name": "tp3-secure-app",
+    "evt.arg.shell": "sh",
+    "evt.time": "14:50:49.930956",
+    "evt.type": "execve",
+    "proc.cmdline": "sh",
+    "proc.name": "sh",
+    "proc.pname": "python",
+    "user.name": "root"
+  },
+  "source": "syscall",
+  "tags": [
+    "container",
+    "shell",
+    "mitre_execution"
+  ]
+}
+

@@ -20,6 +20,17 @@ fi
 
 echo "✓ Cluster Kubernetes détecté"
 
+# 0. Construire et charger l'image sécurisée dans Minikube (si Minikube est utilisé)
+if command -v minikube &> /dev/null && minikube status &> /dev/null; then
+    echo ""
+    echo "0. Construction et chargement de l'image sécurisée dans Minikube..."
+    echo "   Construction avec Dockerfile.secure..."
+    docker build -f Dockerfile.secure -t tp3-secure-app:latest .
+    echo "   Chargement dans Minikube..."
+    minikube image load tp3-secure-app:latest
+    echo "✓ Image sécurisée chargée dans Minikube"
+fi
+
 # 1. Créer les secrets
 echo ""
 echo "1. Création des secrets Kubernetes..."

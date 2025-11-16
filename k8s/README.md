@@ -4,9 +4,33 @@
 
 - Cluster Kubernetes (Minikube, Kind, ou cluster cloud)
 - `kubectl` configuré et connecté au cluster
-- Image Docker `tp3-secure-app:latest` disponible (localement ou dans un registry)
+- Image Docker `tp3-secure-app:latest` construite avec `Dockerfile.secure`
+
+## Construction de l'image sécurisée
+
+**IMPORTANT** : Pour le déploiement, utilisez toujours `Dockerfile.secure`, pas `Dockerfile` !
+
+```bash
+# Construire l'image sécurisée
+docker build -f Dockerfile.secure -t tp3-secure-app:latest .
+
+# Pour Minikube, charger l'image dans le cluster
+minikube image load tp3-secure-app:latest
+```
 
 ## Déploiement
+
+### 0. Construire l'image sécurisée (si pas déjà fait)
+
+**IMPORTANT** : Utilisez toujours `Dockerfile.secure` pour construire l'image de production !
+
+```bash
+# Construire l'image avec le Dockerfile sécurisé
+docker build -f Dockerfile.secure -t tp3-secure-app:latest .
+
+# Pour Minikube, charger l'image dans le cluster
+minikube image load tp3-secure-app:latest
+```
 
 ### 1. Créer les secrets
 
