@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     wget \
     vim \
-    netcat \
+    netcat-openbsd \
     telnet \
     nmap \
     && rm -rf /var/lib/apt/lists/*
