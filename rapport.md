@@ -221,3 +221,226 @@ docker build -f Dockerfile.secure -t tp3-secure-app:latest .
 - Déployer un outil de monitoring au runtime (Falco)
 - Documenter la gestion des secrets
 
+## Étape 4 : Gestion des Secrets avec Kubernetes Secrets
+
+### Objectif
+Retirer les secrets hardcodés du code source et les gérer de manière sécurisée via Kubernetes Secrets ou HashiCorp Vault.
+
+### Problème initial
+
+L'application contenait des secrets hardcodés dans le code source :
+```python
+# AVANT (mauvaise pratique)
+DATABASE_PASSWORD = "admin123"
+API_KEY = "sk-1234567890abcdef"
+```
+
+**Risques** :
+- Secrets visibles dans le code source
+- Secrets commités dans Git
+- Impossible de changer les secrets sans modifier le code
+- Secrets présents dans l'image Docker
+
+### Solution : Utilisation de variables d'environnement
+
+#### Modification de l'application
+
+L'application a été modifiée pour lire les secrets depuis des variables d'environnement :
+
+```python
+# APRÈS (bonne pratique)
+DATABASE_PASSWORD = os.getenv('DATABASE_PASSWORD', '')
+API_KEY = os.getenv('API_KEY', '')
+
+# Vérification que les secrets sont présents
+if not DATABASE_PASSWORD or not API_KEY:
+    print("ERREUR: Les secrets doivent être définis", file=sys.stderr)
+    sys.exit(1)
+```
+
+**Avantages** :
+- ✅ Secrets séparés du code source
+- ✅ Pas de secrets dans l'image Docker
+- ✅ Secrets configurables par environnement
+- ✅ Compatible avec Kubernetes Secrets et Vault
+
+### Implémentation avec Kubernetes Secrets
+
+#### 1. Création du Secret Kubernetes
+
+Fichier `k8s/secret.yaml` :
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secrets
+  namespace: default
+type: Opaque
+stringData:
+  DATABASE_PASSWORD: "SecurePassword123!"
+  API_KEY: "sk-secure-api-key-abcdef123456"
+```
+
+**Création du secret** :
+```bash
+kubectl apply -f k8s/secret.yaml
+```
+
+**Vérification** :
+```bash
+kubectl get secrets
+kubectl describe secret app-secrets
+```
+
+#### 2. Injection des secrets dans le Deployment
+
+Fichier `k8s/deployment.yaml` :
+```yaml
+containers:
+- name: app
+  env:
+  - name: DATABASE_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: app-secrets
+        key: DATABASE_PASSWORD
+  - name: API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: app-secrets
+        key: API_KEY
+```
+
+**Avantages de cette approche** :
+- Secrets stockés dans etcd (avec encryption possible)
+- Injection automatique dans les pods
+- Pas de secrets dans les manifests YAML (si on utilise `data` encodé en base64)
+- Gestion centralisée des secrets
+
+#### 3. Déploiement complet
+
+**Fichiers créés** :
+- `k8s/secret.yaml` : Définition des secrets Kubernetes
+- `k8s/deployment.yaml` : Déploiement avec injection des secrets
+- `k8s/service.yaml` : Service pour exposer l'application
+- `k8s/deploy.sh` : Script de déploiement automatisé
+- `k8s/README.md` : Documentation complète
+
+**Déploiement** :
+```bash
+# Méthode 1 : Script automatisé
+./k8s/deploy.sh
+
+# Méthode 2 : Manuelle
+kubectl apply -f k8s/secret.yaml
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
+```
+
+#### 4. Vérification
+
+**Vérifier que les secrets sont utilisés** :
+```bash
+# Lister les pods
+kubectl get pods -l app=tp3-secure-app
+
+# Vérifier les variables d'environnement (les valeurs ne s'affichent pas)
+kubectl exec <pod-name> -- env | grep -E "DATABASE_PASSWORD|API_KEY"
+
+# Vérifier les logs
+kubectl logs -l app=tp3-secure-app
+```
+
+### Alternative : HashiCorp Vault
+
+Pour une sécurité encore plus avancée, HashiCorp Vault peut être utilisé :
+
+**Avantages de Vault** :
+- 🔐 Chiffrement AES-256 (vs base64 pour K8s Secrets)
+- 🔄 Rotation automatique des secrets
+- 📊 Audit complet des accès
+- 🎯 Politiques d'accès granulaires
+- ⚡ Révocation immédiate
+
+**Intégration avec Kubernetes** :
+- Vault Agent Injector injecte automatiquement les secrets
+- Authentification via ServiceAccount Kubernetes
+- Secrets injectés comme fichiers ou variables d'environnement
+
+**Documentation** : Voir `k8s/vault-example.md` pour un exemple complet.
+
+### Comparaison des solutions
+
+| Critère | Secrets Hardcodés | Kubernetes Secrets | HashiCorp Vault |
+|---------|-------------------|-------------------|-----------------|
+| **Sécurité** | ❌ Très faible | ✅ Bonne | ✅✅ Excellente |
+| **Chiffrement** | ❌ Aucun | ⚠️ Base64 (non chiffré) | ✅ AES-256 |
+| **Rotation** | ❌ Manuelle | ⚠️ Manuelle | ✅ Automatique |
+| **Audit** | ❌ Aucun | ⚠️ Limité | ✅ Complet |
+| **Complexité** | ✅ Simple | ✅ Simple | ⚠️ Moyenne |
+| **Intégration K8s** | ✅ Native | ✅ Native | ⚠️ Via Agent |
+
+### Bonnes pratiques appliquées
+
+1. ✅ **Secrets hors du code source** : Aucun secret dans le code
+2. ✅ **Variables d'environnement** : Secrets injectés via env vars
+3. ✅ **Vérification au démarrage** : L'application vérifie la présence des secrets
+4. ✅ **Utilisateur non-root** : `runAsNonRoot: true` dans le Deployment
+5. ✅ **Limites de ressources** : CPU et mémoire limitées
+6. ✅ **Health checks** : Liveness et readiness probes
+7. ✅ **Documentation** : README complet avec exemples
+
+### Sécurité des secrets Kubernetes
+
+**Points d'attention** :
+- ⚠️ Les secrets sont stockés en base64 dans etcd (non chiffré par défaut)
+- ⚠️ Tous les utilisateurs avec accès à etcd peuvent lire les secrets
+- ⚠️ Les secrets apparaissent dans les variables d'environnement des pods
+
+**Recommandations pour la production** :
+1. **Encryption at rest** : Activer l'encryption pour etcd
+2. **RBAC** : Limiter l'accès aux secrets avec des rôles Kubernetes
+3. **Vault** : Utiliser Vault pour les secrets sensibles
+4. **Rotation** : Mettre en place une rotation régulière
+5. **Audit** : Activer l'audit logging
+
+### Mise à jour des secrets
+
+**Méthode 1 : Modifier le fichier YAML**
+```bash
+# Modifier k8s/secret.yaml
+kubectl apply -f k8s/secret.yaml
+kubectl rollout restart deployment/tp3-secure-app
+```
+
+**Méthode 2 : Commande kubectl**
+```bash
+kubectl create secret generic app-secrets \
+  --from-literal=DATABASE_PASSWORD='NewPassword123!' \
+  --from-literal=API_KEY='sk-new-api-key' \
+  --dry-run=client -o yaml | kubectl apply -f -
+kubectl rollout restart deployment/tp3-secure-app
+```
+
+### Résultats
+
+✅ **Secrets retirés du code source** : Aucun secret dans `app.py`
+✅ **Secrets gérés via Kubernetes** : Injection automatique dans les pods
+✅ **Application fonctionnelle** : L'application démarre et utilise les secrets correctement
+✅ **Documentation complète** : README et exemples fournis
+
+### Fichiers créés
+
+- `app.py` : Modifié pour utiliser des variables d'environnement
+- `k8s/secret.yaml` : Définition des secrets Kubernetes
+- `k8s/deployment.yaml` : Déploiement avec injection des secrets
+- `k8s/service.yaml` : Service Kubernetes
+- `k8s/deploy.sh` : Script de déploiement automatisé
+- `k8s/README.md` : Documentation du déploiement
+- `k8s/vault-example.md` : Exemple d'intégration avec Vault
+
+### Prochaines étapes
+- Déployer un outil de monitoring au runtime (Falco)
+- Simuler un comportement malveillant et montrer la détection
+- Documenter les alertes générées
+

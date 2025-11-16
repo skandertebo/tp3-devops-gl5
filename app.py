@@ -12,9 +12,16 @@ from flask import Flask, jsonify, request
 
 app = Flask(__name__)
 
-# Secret hardcodé (mauvaise pratique)
-DATABASE_PASSWORD = "admin123"
-API_KEY = "sk-1234567890abcdef"
+# Secrets lus depuis les variables d'environnement (bonne pratique)
+# Ces valeurs proviennent de Kubernetes Secrets ou Vault
+DATABASE_PASSWORD = os.getenv('DATABASE_PASSWORD', '')
+API_KEY = os.getenv('API_KEY', '')
+
+# Vérification que les secrets sont présents
+if not DATABASE_PASSWORD or not API_KEY:
+    import sys
+    print("ERREUR: Les secrets DATABASE_PASSWORD et API_KEY doivent être définis", file=sys.stderr)
+    sys.exit(1)
 
 @app.route('/')
 def index():
