@@ -1,0 +1,16 @@
+[
+  {
+    "Type": "debian",
+    "Class": "os-pkgs",
+    "Total": 0,
+    "Critical": 0,
+    "High": 0
+  },
+  {
+    "Type": "python-pkg",
+    "Class": "lang-pkgs",
+    "Total": 0,
+    "Critical": 0,
+    "High": 0
+  }
+]

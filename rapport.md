@@ -106,3 +106,118 @@ Le scan confirme que l'image contient effectivement de nombreuses vulnérabilit�
 - Utiliser une image de base plus récente et minimale
 - Documenter les améliorations apportées
 
+## Étape 3 : Création d'un Dockerfile Sécurisé
+
+### Objectif
+Créer un Dockerfile sécurisé en appliquant les bonnes pratiques de sécurité identifiées lors du scan.
+
+### Améliorations apportées
+
+#### 1. Image de base minimale et récente
+- **Avant** : `python:3.8` (Debian 12.7, 1.57 GB)
+- **Après** : `python:3.12-slim` (Debian 13.2, 248 MB)
+- **Bénéfice** : 
+  - Image 6x plus petite (248 MB vs 1.57 GB)
+  - Version Python plus récente (3.12 vs 3.8)
+  - Distribution Debian plus récente avec moins de vulnérabilités
+  - Image minimale avec seulement les packages essentiels
+
+#### 2. Mise à jour des dépendances Python
+- **Flask** : 2.0.1 → 3.0.3 (corrige CVE-2023-30861)
+- **Werkzeug** : 2.0.1 → 3.0.3 (corrige CVE-2023-25577 et CVE-2024-34069)
+- **Bénéfice** : Toutes les vulnérabilités HIGH dans les dépendances Python sont corrigées
+
+#### 3. Exécution en tant qu'utilisateur non-root
+- **Avant** : Conteneur exécuté en tant que root (UID 0)
+- **Après** : Utilisateur dédié `appuser` (UID 1000) avec groupe dédié
+- **Bénéfice** : En cas de compromission, l'attaquant n'a pas les privilèges root
+
+#### 4. Suppression des packages système inutiles
+- **Avant** : Installation de `nmap`, `netcat`, `telnet`, `vim`, `curl`, `wget`
+- **Après** : Seulement `ca-certificates` pour la sécurité TLS
+- **Bénéfice** : Réduction drastique de la surface d'attaque
+
+#### 5. Mise à jour des packages système
+- **Ajout** : `apt-get upgrade -y` pour appliquer les correctifs de sécurité
+- **Bénéfice** : Les packages système sont à jour avec les derniers correctifs
+
+#### 6. Healthcheck
+- **Ajout** : Healthcheck configuré pour surveiller la santé du conteneur
+- **Bénéfice** : Détection automatique des problèmes de santé
+
+#### 7. Mode debug désactivé
+- **Avant** : `debug=True` en dur dans le code
+- **Après** : Contrôle via variable d'environnement `FLASK_DEBUG`
+- **Bénéfice** : Pas d'exposition d'informations de débogage en production
+
+#### 8. Optimisation des couches Docker
+- **Avant** : Installation des packages et copie du code dans le désordre
+- **Après** : Copie des `requirements.txt` d'abord pour optimiser le cache
+- **Bénéfice** : Builds plus rapides lors des modifications de code
+
+### Comparaison des images
+
+| Critère | Image Vulnérable | Image Sécurisée | Amélioration |
+|---------|------------------|-----------------|--------------|
+| **Taille** | 1.57 GB | 248 MB | **84% de réduction** |
+| **Vulnérabilités CRITICAL** | 55 | 0 | **100% corrigées** |
+| **Vulnérabilités HIGH** | 882 | 0 | **100% corrigées** |
+| **Total vulnérabilités** | 937 | 0 | **100% corrigées** |
+| **Utilisateur** | root | appuser | **Sécurité renforcée** |
+| **Packages système** | 453 | 87 | **81% de réduction** |
+| **Python version** | 3.8 | 3.12 | **Version récente** |
+| **Flask version** | 2.0.1 | 3.0.3 | **Vulnérabilités corrigées** |
+| **Werkzeug version** | 2.0.1 | 3.0.3 | **Vulnérabilités corrigées** |
+
+### Résultats du scan de l'image sécurisée
+
+Le scan Trivy de l'image sécurisée montre :
+- **0 vulnérabilité CRITICAL**
+- **0 vulnérabilité HIGH**
+- **0 vulnérabilité dans les packages système** (Debian 13.2)
+- **0 vulnérabilité dans les dépendances Python**
+
+### Bonnes pratiques appliquées
+
+1. ✅ **Image de base minimale** : Utilisation de `-slim` pour réduire la taille
+2. ✅ **Utilisateur non-root** : Exécution avec un utilisateur dédié
+3. ✅ **Versions spécifiques** : Pas d'utilisation de `latest` implicite
+4. ✅ **Mise à jour des packages** : `apt-get upgrade` pour les correctifs
+5. ✅ **Suppression des outils inutiles** : Pas de packages système non nécessaires
+6. ✅ **Healthcheck** : Surveillance de la santé du conteneur
+7. ✅ **Optimisation du cache** : Ordre des instructions optimisé
+8. ✅ **Dépendances à jour** : Versions récentes sans vulnérabilités connues
+9. ✅ **Mode debug contrôlé** : Variable d'environnement au lieu de hardcodé
+10. ✅ **Permissions correctes** : `chown` pour les fichiers de l'application
+
+### Fichiers créés
+
+- `Dockerfile.secure` : Dockerfile sécurisé avec toutes les bonnes pratiques
+- `requirements.txt` : Mis à jour avec Flask 3.0.3 et Werkzeug 3.0.3
+- `app.py` : Mode debug contrôlé par variable d'environnement
+
+### Construction de l'image sécurisée
+
+```bash
+docker build -f Dockerfile.secure -t tp3-secure-app:latest .
+```
+
+**Image créée** : `tp3-secure-app:latest` (248 MB)
+- Image ID : `e17197ae83b1`
+- Taille réduite de 84% par rapport à l'image vulnérable
+- Aucune vulnérabilité HIGH ou CRITICAL détectée
+
+### Rapports générés pour l'image sécurisée
+- Rapport JSON complet : `trivy-secure-report.json`
+- Résumé des vulnérabilités : `trivy-secure-summary.json`
+
+**Résumé du scan** :
+- Packages système (Debian) : 0 vulnérabilité (CRITICAL: 0, HIGH: 0)
+- Dépendances Python : 0 vulnérabilité (CRITICAL: 0, HIGH: 0)
+- **Total : 0 vulnérabilité HIGH ou CRITICAL**
+
+### Prochaines étapes
+- Mettre en place la gestion des secrets avec Kubernetes Secrets ou Vault
+- Déployer un outil de monitoring au runtime (Falco)
+- Documenter la gestion des secrets
+
